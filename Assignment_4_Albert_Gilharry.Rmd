@@ -1,0 +1,153 @@
+---
+title: 'DATA607 Assignment 4: Tidying and Transformation Data'
+author: "Albert Gilharry"
+date: "27 February 2018"
+output:
+  pdf_document:
+    toc: yes
+  html_document:
+    css: ./css.css
+    highlight: pygments
+    pdf_document: default
+    theme: cerulean
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Intro
+
+<div id = "solution">
+**For this assignment we were given a data set containing on time and delay information of 2 airlines.**
+**We were tasked with tidying, transforming, and analyzing the data.**
+**My solution is documented below**
+</div>
+
+
+## Load Libraries
+
+```{r load-libraries}
+library("dplyr")
+library("tidyr")
+library("tidyverse")
+```
+
+
+## My CSV
+
+<div id  = "solution">
+Below is an image of the CSV file I created from the table in the assignment document.
+</div>
+
+![](images/myCSV.PNG)
+
+
+## Load CSV
+
+```{r load-data}
+raw_data <- read.csv("data/data.csv", sep = ",", header = TRUE, stringsAsFactors=FALSE)
+print(raw_data)
+```
+
+## Tidy Data
+
+<div id ="solution">
+**Use the `gather` function to have the city as rows, set have their respective flights as a `counts` column.**
+</div>
+
+```{r }
+raw_data = gather(raw_data, "city", "count", 3:7)
+print(raw_data)
+```
+
+<div id ="solution">
+Use the `spread` function to create `ontime` and `delayed` columns. This is makes it easier to visualize the data.
+</div>
+
+```{r }
+raw_data = spread(raw_data, "performance", "count")
+print(raw_data)
+```
+
+## Analysis:  Which Airline Performed Better?
+
+<div id = "solution">
+  **To find out, lets answer the following questions?**
+</div>
+
+- What are their respective market shares?
+  
+<div id = "solution">
+```{r}
+total_flights =  sum(raw_data$`on time`) + sum(raw_data$`delayed`)
+mutate(raw_data, flights = delayed + `on time`) %>%
+  group_by(airline) %>% 
+    summarise(airline_total=(sum(flights)/total_flights))
+```
+
+**AM WEST has an advantageous 65.7% market share when compared to ALASKA at only 34.3%.**
+</div>
+
+- Do the market shares differ across cities?
+
+<div id = "solution">
+**This may be better shown by a plot.**
+
+```{r}
+      ggplot(data = mutate( raw_data, flights = delayed + `on time`) %>% 
+               group_by(city,airline) %>% 
+               summarise(airline_total=(sum(flights))), 
+             aes(x = city, y = airline_total,fill=airline)) + 
+                geom_bar(stat = "identity") + 
+                coord_flip() +  
+                labs(title = "Airlines Market Share by City")
+     
+```
+
+**The plot shows that AM WEST has a larger market share in 3 of the 5 cities and it dominates in Phoenix. ALASKA dominates in Seattle but at a significantly lower magnitude than AM WEST's domination in Phoenix.**
+</div>
+
+- What is each airline overall on time ratio?
+
+<div id = "Solution">
+```{r}
+  select(raw_data, -city) %>%
+  group_by(airline) %>%
+    summarise(`on time rate`=( sum(`on time`)/( sum(`on time`) + sum(`delayed`) ) ) )
+```
+
+**AM WEST has a higher on time rate of 89.1% when compared to ALASKA at 86.7%**
+</div>
+
+
+- Would you consider choosing an airline based on your destination?
+
+<div id = solution>
+**To answer this, lets compare the on time performance of airlines by city.**
+
+**Firstly, lets do a visual.**
+
+```{r}
+ data =  select(raw_data,everything()) %>%
+  group_by(airline,city) %>%
+    summarise(`on time`=( sum(`on time`)/( sum(`on time`) + sum(`delayed`) ) ) ) %>%
+    arrange(city)
+
+ggplot(data = data, aes(x = city, y = `on time`,fill=airline)) + 
+                geom_bar(stat = "identity") + 
+                coord_flip() +  
+                labs(title = "Airlines Market Share by City")
+```
+
+**Strangely it seems the ALASKA performs better, we need to look at the data to be sure.**
+
+```{r}
+print(spread(data,city,`on time`))
+```
+
+**This is interesting! Alaska has a higher on time rate in every city, despite AM WEST having a higher overall on time rate! ALASKA's on time rate advantage in San Diego, San Francisco, and Seattle ranges from 5.9% to 11.8%, a significant advantage. AM WEST's severely dominant market share in Phoenix skewed their overall on time rate and it misled us to believe that they are better.**
+
+**The data suggests that ALASKA is the better airline (based on on-time rates), despite having a lower market share. This highlights the importance of exploratory data analysis, it reveals insights that are not obvious by simply skimming through the data!**
+</div>
